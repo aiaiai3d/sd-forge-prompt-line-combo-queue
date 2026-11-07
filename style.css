@@ -1,0 +1,119 @@
+/* Line Combo Queue (行組み合わせ予約マネージャ) */
+
+.lcq-gutter {
+    position: absolute;
+    z-index: 2;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    box-sizing: border-box;
+    padding-right: 6px;
+    text-align: right;
+    color: var(--body-text-color-subdued, #8b93a1);
+    border-right: 1px solid var(--border-color-primary, #2c313a);
+    background: var(--input-background-fill, transparent);
+    border-top-left-radius: var(--input-radius, 6px);
+    border-bottom-left-radius: var(--input-radius, 6px);
+    font-variant-numeric: tabular-nums;
+}
+.lcq-gutter-inner { will-change: transform; }
+.lcq-ln { overflow: hidden; white-space: nowrap; opacity: 0.85; }
+.lcq-ln.lcq-active { color: var(--body-text-color, #e5e7eb); opacity: 1; }
+.lcq-ln.lcq-used { color: #f97316; font-weight: 700; opacity: 1; }
+
+#lcq_accordion.lcq-docked { margin-bottom: 8px; }
+.lcq-help {font-size: 0.85em; opacity: 0.8; line-height: 1.6; margin-bottom: 4px; }
+.lcq-help code { color: #f97316; }
+#lcq_row { align-items: flex-end; }
+#lcq_reserve { min-height: 42px; }
+
+.lcq-msg-ok { color: #4ade80; font-size: 0.85em; }
+.lcq-msg-err { color: #f87171; font-size: 0.85em; }
+
+#lcq_list_mount { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.lcq-list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lcq-list-title { font-weight: 600; }
+.lcq-summary { font-size: 0.85em; opacity: 0.75; }
+
+.lcq-drop {
+    border: 1px solid var(--border-color-primary, #3a404b);
+    border-radius: var(--input-radius, 8px);
+    background: var(--input-background-fill, #12141a);
+    overflow: hidden;
+    outline: none;
+}
+.lcq-drop.lcq-dragover { border: 2px dashed #f97316; }
+.lcq-drop-hint { padding: 8px 12px; text-align: center; font-size: 0.8em; opacity: 0.65; }
+.lcq-empty { padding: 16px; text-align: center; opacity: 0.65; }
+
+.lcq-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 4px 4px;
+    border-bottom: 1px solid var(--border-color-primary, #23272f);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.9em;
+}
+.lcq-no { flex: 0 0 2.4em; opacity: 0.6; }
+.lcq-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lcq-combo { word-break: break-all; }
+.lcq-sub { font-size: 0.85em; opacity: 0.75; }
+.lcq-btns { display: flex; gap: 4px; margin-left: auto; }
+.lcq-btns button {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--border-color-primary, #3a404b);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.lcq-btns button:hover:not(:disabled) { background: var(--button-secondary-background-fill-hover, rgba(255, 255, 255, 0.06)); }
+.lcq-btns button:disabled { opacity: 0.3; cursor: default; }
+.lcq-btns button.lcq-del { color: #f87171; }
+
+.lcq-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.lcq-actions button {
+    padding: 6px 14px;
+    min-height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--button-secondary-border-color, var(--border-color-primary, #3a404b));
+    background: var(--button-secondary-background-fill, transparent);
+    color: var(--button-secondary-text-color, inherit);
+    cursor: pointer;
+}
+.lcq-actions button:hover { background: var(--button-secondary-background-fill-hover, rgba(255, 255, 255, 0.06)); }
+.lcq-notice { font-size: 0.85em; }
+
+/* v2: per-item enable, counts, errors */
+.lcq-head-tools { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.lcq-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    opacity: 0.75;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+.lcq-link:hover { opacity: 1; }
+.lcq-check { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 34px; cursor: pointer; }
+.lcq-check input[type="checkbox"] {
+    -webkit-appearance: checkbox !important;
+    appearance: auto !important;
+    background-image: none !important;
+    accent-color: #f97316;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+}
+.lcq-row.lcq-off .lcq-no,
+.lcq-row.lcq-off .lcq-body { opacity: 0.4; text-decoration: line-through; }
+.lcq-row.lcq-bad .lcq-count { color: #f87171; }
+.lcq-err { color: #f87171; font-size: 0.85em; font-family: var(--font, sans-serif); }
