@@ -237,7 +237,8 @@
     function queueLines() {
         const ta = queueTextarea();
         if (!ta) return [];
-        return ta.value.split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#"));
+        // '#' starts a comment to the end of the line (same rule as lib_plcq/core.py queue_lines)
+        return ta.value.split("\n").map((s) => s.split("#", 1)[0].trim()).filter((s) => s);
     }
 
     function readMeta() {
@@ -400,8 +401,8 @@
             for (const f of files) {
                 const text = await f.text();
                 for (const raw of text.split(/\r?\n/)) {
-                    const s = raw.trim();
-                    if (!s || s.startsWith("#")) continue;
+                    const s = raw.split("#", 1)[0].trim();
+                    if (!s) continue;
                     const n = normalizeFileLine(s);
                     if (n) added.push(n); else bad++;
                 }
