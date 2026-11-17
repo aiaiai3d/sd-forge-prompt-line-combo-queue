@@ -39,6 +39,8 @@ MIN_SIZE = 64
 MAX_SIZE = 8192
 MAX_SEED = 2**32 - 1
 MAX_COMBOS = 10000
+MAX_IMAGES_PER_RESERVATION = 1000  # images produced by one queue item (:N or every combination)
+MAX_TOTAL_IMAGES = 5000  # enabled images across the whole queue
 MAX_RANGE = 500
 OFF = "off"
 
@@ -256,6 +258,11 @@ class _Parser:
                 self.take("|")
                 opts.append(self.seq(("|", "}")))
             self.take("}")
+            # Each option is drawn from its own combinations; an option with more than
+            # MAX_COMBOS would silently drop its tail, so refuse it here. Nested random
+            # groups were already checked when they were parsed.
+            if any(o.combos > MAX_COMBOS for o in opts):
+                raise ComboError("Too many combinations in a random group in “{expr}” (max {max})", expr=self.text, max=MAX_COMBOS)
             return RandNode(opts)
         a = self.line()
         if self.peek() == "-":
@@ -304,12 +311,16 @@ def parse_combo(expr: str) -> Combo:
         s, count = m.group(1), int(m.group(2))
         if count < 1:
             raise ComboError("The image count must be 1 or more (“{expr}”)", expr=expr.strip())
+        if count > MAX_IMAGES_PER_RESERVATION:
+            raise ComboError("Image count “{expr}” is too large (max {max} per item)", expr=expr.strip(), max=MAX_IMAGES_PER_RESERVATION)
     if ":" in s:
         raise ComboError("“:” must be followed by the image count at the end (“{expr}”)", expr=expr.strip())
     p = _Parser(s)
     root = p.parse()
     if root.combos > MAX_COMBOS:
         raise ComboError("Too many combinations in “{expr}” (max {max})", expr=s, max=MAX_COMBOS)
+    if count is None and root.combos > MAX_IMAGES_PER_RESERVATION:
+        raise ComboError("“{expr}” has {n} combinations, over the {max} images per item; add :N to choose the count", expr=s, n=root.combos, max=MAX_IMAGES_PER_RESERVATION)
     return Combo(s, count, root, p.has_random)
 
 
@@ -387,7 +398,29 @@ def parse_seed(text) -> int:
     return int(s)
 
 
-def make_jobs(combo_text: str, size: str, seed, prompt: str | None = None, negative: str | None = None) -> list[Job]:
+def enabled_images(text: str | None) -> int:
+    """Images the enabled, parsable items of a saved queue would produce."""
+    total = 0
+    for line in queue_lines(text):
+        try:
+            j = parse_queue_line(line)
+        except ComboError:
+            continue
+        if j.enabled:
+            total += j.combo.images
+    return total
+
+
+def check_total_images(total: int) -> None:
+    if total > MAX_TOTAL_IMAGES:
+        raise ComboErrors([ComboError(
+            "The queue would produce {total} images (max {max} in total). Remove items or lower the counts.",
+            total=total, max=MAX_TOTAL_IMAGES,
+        )])
+
+
+def make_jobs(combo_text: str, size: str, seed, prompt: str | None = None, negative: str | None = None,
+              existing_queue: str | None = None) -> list[Job]:
     """"Add to queue" input -> jobs. Raises ComboErrors listing every bad line."""
     errors: list[ComboError] = []
     try:
@@ -408,6 +441,8 @@ def make_jobs(combo_text: str, size: str, seed, prompt: str | None = None, negat
         raise ComboErrors(errors)
     if not jobs:
         raise ComboErrors([ComboError("Write at least one line combination (e.g. 1+2+(3,4)+n1)")])
+    if existing_queue is not None:
+        check_total_images(enabled_images(existing_queue) + sum(j.combo.images for j in jobs if j.enabled))
     return jobs
 
 
@@ -483,6 +518,7 @@ def plan_queue(text: str, prompt: str, negative: str, rng: random.Random | None 
                 errors.append(ComboError("Queue item #{no}: {msg}", no=no, msg=e))
     if errors:
         raise ComboErrors(errors)
+    check_total_images(sum(j.combo.images for _, j in jobs))  # before any expansion
 
     plan = Plan([], [], [], [], [], [], len(jobs))
     for no, j in jobs:

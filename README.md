@@ -90,6 +90,7 @@ Groups can be nested, and an alternative can be a whole sequence:
 - **Joining:** the chosen lines are joined with newlines, in the written order, and styles are applied afterwards. End each line with a comma if other extensions will read the prompt (see [Compatibility](#compatibility)).
 - **Negative prompt:** an item without any `n` line gets an empty negative prompt.
 - **Seed:** `-1` is random for every image. A fixed seed counts up within an item: seed, seed+1, seed+2…
+- **Reproducibility:** a fixed Seed only fixes the image seeds. The `{…}` picks and random sizes use a separate random generator, so running the same queue with the same Seed can pick different lines or sizes.
 - **When line numbers are read:** at **Generate**, from the prompt fields as they are then, not when the item was added.
 - **Batches:** Batch count and Batch size are ignored while the queue is in use, so images are made one at a time. No grid is saved, because sizes can differ.
 - **Infotext:** each image records `Line Combo: 2+4+7+n1` (the lines actually used) and `Line Combo Source: #1 2+(3,4,5)+7+n1`.

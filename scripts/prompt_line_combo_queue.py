@@ -243,7 +243,7 @@ class PromptLineComboQueue(scripts.Script):
                 return gr.update(), _msg(t("The list needs at least one size"), False)
             size = format_size_token(SIZES.sizes)
         try:
-            jobs = make_jobs(combo, size, seed, prompt, negative)
+            jobs = make_jobs(combo, size, seed, prompt, negative, existing_queue=queue or "")
         except ComboErrors as e:
             return gr.update(), _msg(e.render(t), False)
         existing = (queue or "").rstrip("\n")
