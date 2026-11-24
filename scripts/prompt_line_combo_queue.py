@@ -34,6 +34,14 @@ from modules.rng import ImageRNG
 from modules.ui_components import InputAccordion
 
 logger = logging.getLogger("prompt_line_combo_queue")
+if not logger.handlers:
+    # The webui root logger only shows WARNING and above, which would hide the info lines
+    # (item/image counts, Dynamic Prompts status). Give this logger its own console output.
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(_h)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
 RANDOM_SIZE = "random"
 
@@ -279,8 +287,11 @@ class PromptLineComboQueue(scripts.Script):
         """
         found = self._find_dynamic_prompts(p)
         if not found:
+            mods = [type(s).__module__ for s in getattr(getattr(p, "scripts", None), "alwayson_scripts", None) or []]
+            logger.info(f"Prompt Line Combo Queue: Dynamic Prompts not applied (not found or switched off); scripts seen: {mods}")
             return plan.prompts, plan.negatives
         dp, dp_args = found
+        logger.info("Prompt Line Combo Queue: expanding Dynamic Prompts syntax in the queued prompts")
 
         keep = {k: getattr(p, k, None) for k in (
             "prompt", "negative_prompt", "all_prompts", "all_negative_prompts", "all_seeds",
@@ -299,6 +310,9 @@ class PromptLineComboQueue(scripts.Script):
                 dp.process(p, *dp_args)
                 out_p.append(p.all_prompts[0])
                 out_n.append(p.all_negative_prompts[0])
+            if out_p == list(plan.prompts) and any("{" in x for x in out_p):
+                logger.warning("Prompt Line Combo Queue: Dynamic Prompts left “{” in the prompt unchanged "
+                               "(is its variant syntax changed in Settings, or is “Combinatorial” on?)")
         except Exception:
             logger.exception("Prompt Line Combo Queue: Dynamic Prompts expansion failed; using the plain prompts")
             return plan.prompts, plan.negatives
