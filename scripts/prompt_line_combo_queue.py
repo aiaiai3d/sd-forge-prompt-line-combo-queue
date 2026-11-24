@@ -257,6 +257,59 @@ class PromptLineComboQueue(scripts.Script):
 
     # --------------------------------------------------------- generation
 
+    @staticmethod
+    def _find_dynamic_prompts(p):
+        """(script, its args) when the Dynamic Prompts extension is installed and switched on."""
+        runner = getattr(p, "scripts", None)
+        for s in getattr(runner, "alwayson_scripts", None) or []:
+            if "sd_dynamic_prompts" not in type(s).__module__:
+                continue
+            args = list(p.script_args[s.args_from:s.args_to])
+            if args and args[0]:  # first argument is its "Dynamic Prompts enabled" checkbox
+                return s, args
+            return None
+        return None
+
+    def _expand_dynamic_prompts(self, p, plan):
+        """Expand Dynamic Prompts syntax in every planned prompt, one image at a time.
+
+        Each prompt goes through the extension's own process() with the image's seed, so the
+        user's Dynamic Prompts settings (wildcards, parser symbols, ...) apply unchanged.
+        Returns (prompts, negatives); on any failure the plain planned prompts are returned.
+        """
+        found = self._find_dynamic_prompts(p)
+        if not found:
+            return plan.prompts, plan.negatives
+        dp, dp_args = found
+
+        keep = {k: getattr(p, k, None) for k in (
+            "prompt", "negative_prompt", "all_prompts", "all_negative_prompts", "all_seeds",
+            "all_subseeds", "all_hr_prompts", "all_hr_negative_prompts", "n_iter", "batch_size",
+            "seed", "main_prompt", "main_negative_prompt", "prompt_for_display",
+        )}
+        keep_extra = dict(p.extra_generation_params)
+        out_p, out_n = [], []
+        try:
+            for i, (pos, neg) in enumerate(zip(plan.prompts, plan.negatives)):
+                p.prompt, p.negative_prompt = pos, neg
+                p.all_prompts, p.all_negative_prompts = [pos], [neg]
+                p.n_iter, p.batch_size = 1, 1
+                p.seed = plan.seeds[i]
+                p.all_seeds = [plan.seeds[i]]
+                dp.process(p, *dp_args)
+                out_p.append(p.all_prompts[0])
+                out_n.append(p.all_negative_prompts[0])
+        except Exception:
+            logger.exception("Prompt Line Combo Queue: Dynamic Prompts expansion failed; using the plain prompts")
+            return plan.prompts, plan.negatives
+        finally:
+            for k, v in keep.items():
+                if v is not None or hasattr(p, k):
+                    setattr(p, k, v)
+            p.extra_generation_params.clear()
+            p.extra_generation_params.update(keep_extra)
+        return out_p, out_n
+
     def process(self, p, enabled, queue, *args):
         self._plan = None
         if not enabled or not (queue or "").strip():
@@ -279,6 +332,11 @@ class PromptLineComboQueue(scripts.Script):
         if total == 0:
             logger.warning("Prompt Line Combo Queue: no enabled queue items; generating normally")
             return
+
+        # The queue replaces p.all_prompts after Dynamic Prompts has already run on the
+        # raw template, so its {a|b} / __wildcard__ syntax would reach the model as plain
+        # text. Run each queued prompt through Dynamic Prompts ourselves.
+        plan.prompts, plan.negatives = self._expand_dynamic_prompts(p, plan)
 
         styled_p = [shared.prompt_styles.apply_styles_to_prompt(x, p.styles) for x in plan.prompts]
         styled_n = [shared.prompt_styles.apply_negative_styles_to_prompt(x, p.styles) for x in plan.negatives]
